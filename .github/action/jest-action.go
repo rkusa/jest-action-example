@@ -74,12 +74,13 @@ func handlePush(ctx context.Context, client *github.Client, event *github.PushEv
 
 	// find the action's checkrun
 	checkName := os.Getenv(ghactions.GithubAction)
-	result, _, err := client.Checks.ListCheckRunsForRef(ctx, owner, repoName, head, &github.ListCheckRunsOptions{
-		CheckName: github.String(checkName),
-		Status:    github.String("in_progress"),
-	})
+	result, _, err := client.Checks.ListCheckRunsForRef(ctx, owner, repoName, head, nil)
 	if err != nil {
 		return err
+	}
+
+	for _, run := range result.CheckRuns {
+		fmt.Println(run)
 	}
 
 	if len(result.CheckRuns) == 0 {

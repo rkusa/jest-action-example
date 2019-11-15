@@ -8,6 +8,6 @@ jobs:
     - uses: actions/checkout@v1
     - run: npm install
     - name: Run Tests
-      uses: rkusa/jest-action@master
+      uses: ./.github/action
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

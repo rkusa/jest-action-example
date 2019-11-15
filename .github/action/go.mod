@@ -4,3 +4,5 @@ require (
 	github.com/google/go-github/v24 v24.0.0
 	github.com/ldez/ghactions v1.0.0
 )
+
+go 1.13
