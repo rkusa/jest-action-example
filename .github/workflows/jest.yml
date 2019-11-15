@@ -1,12 +1,12 @@
 name: Jest Example
-on: push
 jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
+    - run: npm install
     - name: Run Tests
-      uses: ./.github/action
+      uses: rkusa/jest-action@master
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
