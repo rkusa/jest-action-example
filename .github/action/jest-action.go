@@ -4,12 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/google/go-github/v28/github"
 	"golang.org/x/oauth2"
+	"gopkg.in/yaml.v2"
 )
 
 type Report struct {
@@ -52,6 +56,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	checkName, err := extractCheckName()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("CHECK NNAAAAAMMMEE IS:", checkName)
 
 	// nothing to do, if the tests succeeded
 	if report.Success {
@@ -178,4 +189,68 @@ func main() {
 	}
 
 	log.Fatal(summary)
+}
+
+func extractCheckName() (string, error) {
+	workflowName := os.Getenv("GITHUB_WORKFLOW")
+	// run1 -> 1
+	stepIndex, err := strconv.Atoi(strings.TrimPrefix(os.Getenv("GITHUB_ACTION"), "run"))
+	if err != nil {
+		return "", err
+	}
+
+	stepIndex--
+
+	// go through all workflow files
+	files, err := ioutil.ReadDir("./.github/workflows")
+	if err != nil {
+		return "", err
+	}
+
+	type Workflow struct {
+		Name string
+		Jobs map[string]struct {
+			Name  string
+			Steps []struct {
+				Uses *string
+			}
+		}
+	}
+
+	for _, f := range files {
+		if filepath.Ext(f.Name()) != "yml" {
+			continue
+		}
+
+		data, err := ioutil.ReadFile("./.github/workflows/" + f.Name())
+		if err != nil {
+			return "", err
+		}
+
+		var workflow Workflow
+		if err := yaml.Unmarshal(data, &workflow); err != nil {
+			return "", err
+		}
+
+		if workflow.Name != workflowName {
+			continue
+		}
+
+		for _, job := range workflow.Jobs {
+			if len(job.Steps) <= stepIndex {
+				continue
+			}
+
+			step := job.Steps[stepIndex]
+			if step.Uses == nil {
+				continue
+			}
+
+			if strings.HasPrefix(*step.Uses, "./.github/action") {
+				return job.Name, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("Could not find check name")
 }
