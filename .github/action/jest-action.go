@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/google/go-github/v24/github"
-	"github.com/ldez/ghactions"
+	"github.com/google/go-github/v28/github"
+	"golang.org/x/oauth2"
 )
 
 type Report struct {
@@ -46,37 +46,34 @@ type Location struct {
 }
 
 func main() {
+	// read and decode the Jest result from stdin
 	var report Report
 	err := json.NewDecoder(os.Stdin).Decode(&report)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	ctx := context.Background()
-	action := ghactions.NewAction(ctx)
-
-	action.OnPush(func(client *github.Client, event *github.PushEvent) error {
-		return handlePush(ctx, client, event, report)
-	})
-
-	if err := action.Run(); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func handlePush(ctx context.Context, client *github.Client, event *github.PushEvent, report Report) error {
+	// nothing to do, if the tests succeeded
 	if report.Success {
-		return nil
+		return
 	}
 
-	head := os.Getenv(ghactions.GithubSha)
-	owner, repoName := ghactions.GetRepoInfo()
+	ctx := context.Background()
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: os.Getenv("GITHUB_SECRET")},
+	)
+	client := github.NewClient(oauth2.NewClient(ctx, ts))
+
+	head := os.Getenv("GITHUB_SHA")
+	repoParts := strings.Split(os.Getenv("GITHUB_REPOSITORY"), "/")
+	owner := repoParts[0]
+	repoName := repoParts[1]
 
 	// find the action's checkrun
-	checkName := os.Getenv(ghactions.GithubAction)
+	checkName := os.Getenv("GITHUB_ACTION")
 	result, _, err := client.Checks.ListCheckRunsForRef(ctx, owner, repoName, head, nil)
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
 
 	for _, run := range result.CheckRuns {
@@ -84,12 +81,12 @@ func handlePush(ctx context.Context, client *github.Client, event *github.PushEv
 	}
 
 	if len(result.CheckRuns) == 0 {
-		return fmt.Errorf("Unable to find check run for action: %s", checkName)
+		log.Fatalf("Unable to find check run for action: %s", checkName)
 	}
 	checkRun := result.CheckRuns[0]
 
 	// add annotations for test failures
-	workspacePath := os.Getenv(ghactions.GithubWorkspace) + "/"
+	workspacePath := os.Getenv("GITHUB_WORKSPACE") + "/"
 	var annotations []*github.CheckRunAnnotation
 	for _, t := range report.TestResults {
 		if t.Status == "passed" {
@@ -163,9 +160,9 @@ func handlePush(ctx context.Context, client *github.Client, event *github.PushEv
 			Output:  output,
 		})
 		if err != nil {
-			return err
+			log.Fatal(err)
 		}
 	}
 
-	return fmt.Errorf(summary)
+	log.Fatal(summary)
 }
