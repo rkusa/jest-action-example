@@ -65,19 +65,32 @@ func main() {
 	client := github.NewClient(oauth2.NewClient(ctx, ts))
 
 	head := os.Getenv("GITHUB_SHA")
-	repoParts := strings.Split(os.Getenv("GITHUB_REPOSITORY"), "/")
+	repoParts := strings.SplitN(os.Getenv("GITHUB_REPOSITORY"), "/", 2)
 	owner := repoParts[0]
 	repoName := repoParts[1]
 
 	// find the action's checkrun
 	checkName := os.Getenv("GITHUB_ACTION")
-	result, _, err := client.Checks.ListCheckRunsForRef(ctx, owner, repoName, head, nil)
+	result, _, err := client.Checks.ListCheckRunsForRef(ctx, owner, repoName, head, &github.ListCheckRunsOptions{
+		// CheckName: github.String(checkName),
+		// HeadSHA:   github.String(head),
+		// Status:    github.String("in_progress"),
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	for _, run := range result.CheckRuns {
 		fmt.Println(run)
+	}
+
+	result2, _, err := client.Checks.ListCheckSuitesForRef(ctx, owner, repoName, head, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, suite := range result2.CheckSuites {
+		fmt.Println(suite)
 	}
 
 	if len(result.CheckRuns) == 0 {
