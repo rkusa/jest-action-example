@@ -81,7 +81,6 @@ func main() {
 	repoName := repoParts[1]
 
 	// find the action's checkrun
-	checkName := os.Getenv("GITHUB_ACTION")
 	result, _, err := client.Checks.ListCheckRunsForRef(ctx, owner, repoName, head, &github.ListCheckRunsOptions{
 		// CheckName: github.String(checkName),
 		// HeadSHA:   github.String(head),
